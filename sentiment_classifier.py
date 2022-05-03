@@ -3,17 +3,23 @@ from flair.data import Sentence
 
 import tweepy as tw
 import pandas as pd
-import datetime 
+from datetime import datetime, timedelta
 
 read = False
 
-start_date = 202204011200
-end_date = 202204021200
+total_days = 30
 
-add_day = 10000
+end_date = datetime.today()
+start_date = end_date - timedelta(days=total_days)
 
 col_names =  ['date', 'tweet']
 df  = pd.DataFrame(columns = col_names)
+
+def to_formatted_date(date):
+  date = date.replace(hour=0, minute=0, second=0, microsecond=0)
+  return datetime.strftime(date,'%Y%m%d%H%M')
+
+date_range = pd.date_range(start=start_date, end=end_date).to_pydatetime().tolist()
 
 if read:
   # Your app's API/consumer key and secret can be found under the Consumer Keys
@@ -35,34 +41,39 @@ if read:
   auth.set_access_token(access_token, access_token_secret)
   api = tw.API(auth, wait_on_rate_limit=True)
 
-  for i in range(0, 25):
-    start_date = start_date + add_day
-    end_date = end_date + add_day
-    tweets = api.search_30_day(query="ETHUSDT lang:en"
-                      ,label="stage"
-                      ,fromDate=start_date
-                      ,toDate=end_date)
-    # Collect tweets
-    for tweet in tweets:
-      s = tweet.text
-      df.loc[len(df)] = [start_date, s]
+  for date in date_range:
+    if date.weekday() < 5:
+      start_query_date = date
+      end_query_date = start_query_date + timedelta(days=1)
+      
+      if end_query_date < datetime.today():
+        tweets = api.search_30_day(query="ETHUSDT lang:en"
+                          ,label="stage"
+                          ,fromDate=to_formatted_date(start_query_date)
+                          ,toDate=to_formatted_date(end_query_date) )
+        # Collect tweets
+        for tweet in tweets:
+          s = tweet.text
+          df.loc[len(df)] = [to_formatted_date(start_query_date), s]
 
   df.to_csv('tweets.csv')
 else:
   df = pd.read_csv('tweets.csv')
 
 classifier = TextClassifier.load('en-sentiment')
-for date in range(start_date, end_date + ( add_day * 30 ), add_day):
-  q = "date == " + str(date)
-  date_tweets=df.query(q)
-  sentiment = 0
-  for n in range(0, len(date_tweets)):
-    tweet = date_tweets["tweet"].iloc[n]
-    sentence = Sentence(tweet)
-    classifier.predict(sentence)
-    # print sentence with predicted labels
-    if sentence.tag == 'NEGATIVE':
-      sentiment = sentiment - sentence.score
-    else:
-      sentiment = sentiment + sentence.score
-  print(str(date) + ":" + str(sentiment))
+
+for date in date_range:
+  if date.weekday() < 5:
+    q = "date == '" + str(to_formatted_date(date)) + "'"
+    date_tweets=df.query(q)
+    sentiment = 0
+    for n in range(0, len(date_tweets)):
+      tweet = date_tweets["tweet"].iloc[n]
+      sentence = Sentence(tweet)
+      classifier.predict(sentence)
+      # print sentence with predicted labels
+      if sentence.tag == 'NEGATIVE':
+        sentiment = sentiment - sentence.score
+      else:
+        sentiment = sentiment + sentence.score
+    print(str(date) + ":" + str(sentiment))
