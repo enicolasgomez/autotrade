@@ -21,7 +21,7 @@ if query != '':
         if noOfDays != '':
                 #Creating list to append tweet data
                 tweets_list = []
-                now = dt.date.today()
+                now = dt.date.today() + dt.timedelta(days = 1)
                 now = now.strftime('%Y-%m-%d')
                 yesterday = dt.date.today() - dt.timedelta(days = int(noOfDays))
                 yesterday = yesterday.strftime('%Y-%m-%d')

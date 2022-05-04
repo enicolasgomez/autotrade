@@ -64,7 +64,7 @@ classifier = TextClassifier.load('en-sentiment')
 
 for date in date_range:
   if date.weekday() < 5:
-    q = "date == '" + str(to_formatted_date(date)) + "'"
+    q = "date == " + str(to_formatted_date(date)) 
     date_tweets=df.query(q)
     sentiment = 0
     for n in range(0, len(date_tweets)):
