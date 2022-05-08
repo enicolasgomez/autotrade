@@ -10,7 +10,7 @@ plt.rc('font', size=14)
 
 name = 'ETH-USD'
 ticker = yfinance.Ticker(name)
-df = ticker.history(interval="1d",start="2022-04-01",end="2022-05-04")
+df = ticker.history(interval="1d",start="2022-04-01",end="2022-05-05")
 
 df['Date'] = pd.to_datetime(df.index)
 df['Date'] = df['Date'].apply(mpl_dates.date2num)
