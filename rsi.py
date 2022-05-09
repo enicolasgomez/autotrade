@@ -44,7 +44,7 @@ def stochastic(data, k_window, d_window, window):
 
 rsi_length = 14
 end_date = dt.datetime.today()
-start_date = end_date - dt.timedelta(days=350)
+start_date = end_date - dt.timedelta(days=900)
 stock = 'BTC-USD'
 df = pdr.get_data_yahoo(stock, start_date, end_date)
 
@@ -80,18 +80,18 @@ class Position:
     self.calculate_profit(close)
   def calculate_profit(self, close):
     if type == 'BUY':
-      profit = close - self.open
+      profit = round(close - self.open)
     else:
-      profit = self.open - close 
+      self.profit = round(self.open - close)
 def AngleBtw2Points(pointA, pointB):
   changeInX = pointB.x - pointA.x
   changeInY = pointB.y - pointA.y
   return math.degrees(math.atan2(changeInY,changeInX)) 
 
-def CrossOver(pointA1, pointB1, pointA2, pointB2):
-  if pointA1.y > pointB1.y and pointA2.y < pointB2.y:
+def CrossOver(pointA1, pointA2, pointB1):
+  if pointA1.y > pointB1.y and pointA2.y < pointB1.y:
     return -1
-  elif pointA1.y < pointB1.y and pointA2.y > pointB2.y:
+  elif pointA2.y < pointB1.y and pointA2.y > pointB1.y:
     return 1
   else:
     return 0
@@ -102,19 +102,18 @@ signal_row = None
 openPosition = None 
 positions = []
 
-signal_angle = 45
-signal_angle_retire = 10 
+signal_angle = 10
+signal_angle_retire = 5
 
-for index, row in df.iterrows():
-  last_row = row 
-  if index > rsi_length + 15:
-    startK = Point(index-1, row['K'])
-    startD = Point(index-1, row['D'])
-    endK = Point(index, row['K'])
-    endD = Point(index, row['D'])
-    angle = AngleBtw2Points(startK, endK, startD, endD)
+for index, row in df.iterrows(): 
+  if index > rsi_length + 20 and last_row is not None:
+    startK = Point(0, last_row['K']) #using 0 to 100 as SRSI is an oscillator (0, 100)
+    startD = Point(0, last_row['D'])
+    endK = Point(100, row['K'])
+    endD = Point(100, row['D']) 
+    angle = AngleBtw2Points(startK, endK)
     if not openPosition:
-      crossOver = CrossOver(startK, endK, startD, endD)
+      crossOver = CrossOver(startK, endK, startD) #K crosses D
       if crossOver != 0:
         if abs(angle) > signal_angle:
           signal_row = row
@@ -124,11 +123,14 @@ for index, row in df.iterrows():
             openPosition = Position(row['Close'], 'SELL')
     else:
       #evaluate
-      openedPricePoint = Point(signal_row, row['Close'])
-      angle = AngleBtw2Points(startK, endK, startD, endD)
+      startK = Point(0, signal_row['K']) #using 0 to 100 as SRSI is an oscillator (0, 100)
+      endK = Point(100, row['K'])
+      angle = AngleBtw2Points(startK, endK)
       if abs(angle) > signal_angle_retire:
         openPosition.close(row['Close'])
         positions.append(openPosition)
+        print(openPosition.profit)
         openPosition = None 
         signal_row = None 
         openPosition = None 
+  last_row = row
