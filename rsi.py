@@ -102,8 +102,10 @@ signal_row = None
 openPosition = None 
 positions = []
 
-signal_angle = 10
-signal_angle_retire = 5
+#angle in which K crossed D 
+signal_angle = 12
+#angle in which K crossed D, given an open position. If lower than this then closed. (tendency change)
+signal_angle_retire = 8
 
 for index, row in df.iterrows(): 
   if index > rsi_length + 20 and last_row is not None:
