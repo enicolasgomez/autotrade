@@ -1,12 +1,12 @@
 import yfinance as yf
-from pandas_datareader import data as pdr
+#from pandas_datareader import data as pdr
 import datetime as dt
 import talib as ta 
 import numpy as np 
 import math
 import matplotlib.pyplot as plt
 
-yf.pdr_override()
+#yf.pdr_override()
 
 def computeRSI (data, time_window):
     diff = data.diff(1).dropna()        # diff in one field(one day)
@@ -46,9 +46,11 @@ rsi_length = 14
 end_date = dt.datetime.today()
 start_date = end_date - dt.timedelta(days=950)
 stock = 'BTC-USD'
-df = pdr.get_data_yahoo(stock, start_date, end_date)
+#df = pdr.get_data_yahoo(stock, start_date, end_date)
+ticker = yf.Ticker(stock)
+df = ticker.history(interval="1h",start="2021-05-05",end="2022-05-05")
 
-df['RSI'] = computeRSI(df['Adj Close'], rsi_length)
+df['RSI'] = computeRSI(df['Close'], rsi_length)
 df['K'], df['D'] = stochastic(df['RSI'], 3, 3, rsi_length)
 
 def plot_srsi(k, d):
