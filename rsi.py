@@ -44,7 +44,7 @@ def stochastic(data, k_window, d_window, window):
 
 rsi_length = 14
 end_date = dt.datetime.today()
-start_date = end_date - dt.timedelta(days=900)
+start_date = end_date - dt.timedelta(days=950)
 stock = 'BTC-USD'
 df = pdr.get_data_yahoo(stock, start_date, end_date)
 
@@ -91,7 +91,7 @@ def AngleBtw2Points(pointA, pointB):
 def CrossOver(pointA1, pointA2, pointB1):
   if pointA1.y > pointB1.y and pointA2.y < pointB1.y:
     return -1
-  elif pointA2.y < pointB1.y and pointA2.y > pointB1.y:
+  elif pointA1.y < pointB1.y and pointA2.y > pointB1.y:
     return 1
   else:
     return 0
@@ -103,9 +103,11 @@ openPosition = None
 positions = []
 
 #angle in which K crossed D 
-signal_angle = 12
+signal_angle = 10
 #angle in which K crossed D, given an open position. If lower than this then closed. (tendency change)
-signal_angle_retire = 8
+signal_angle_retire = 7
+
+#plot_srsi(df['K'], df['D'])
 
 for index, row in df.iterrows(): 
   if index > rsi_length + 20 and last_row is not None:
@@ -117,15 +119,16 @@ for index, row in df.iterrows():
     if not openPosition:
       crossOver = CrossOver(startK, endK, startD) #K crosses D
       if crossOver != 0:
-        if abs(angle) > signal_angle:
-          signal_row = row
+        if abs(angle) > signal_angle and (crossOver * angle > 0): #checking if crossOver and angle have the same sign
           if angle > 0:
+            signal_row = row
             openPosition = Position(row['Close'], 'BUY')
           else:
+            signal_row = row
             openPosition = Position(row['Close'], 'SELL')
     else:
       #evaluate
-      startK = Point(0, signal_row['K']) #using 0 to 100 as SRSI is an oscillator (0, 100)
+      startK = Point(0, last_row['K']) #using 0 to 100 as SRSI is an oscillator (0, 100)
       endK = Point(100, row['K'])
       angle = AngleBtw2Points(startK, endK)
       if abs(angle) > signal_angle_retire:
