@@ -48,7 +48,7 @@ start_date = end_date - dt.timedelta(days=950)
 stock = 'BTC-USD'
 #df = pdr.get_data_yahoo(stock, start_date, end_date)
 ticker = yf.Ticker(stock)
-df = ticker.history(interval="1h",start="2021-05-05",end="2022-05-05")
+df = ticker.history(interval="1D",start="2019-05-05",end="2022-05-05")
 
 df['RSI'] = computeRSI(df['Close'], rsi_length)
 df['K'], df['D'] = stochastic(df['RSI'], 3, 3, rsi_length)
@@ -81,10 +81,11 @@ class Position:
     self.close = close
     self.calculate_profit(close)
   def calculate_profit(self, close):
-    if type == 'BUY':
-      profit = round(close - self.open)
+    if self.type == 'BUY':
+      self.profit = round(close - self.open)
     else:
       self.profit = round(self.open - close)
+
 def AngleBtw2Points(pointA, pointB):
   changeInX = pointB.x - pointA.x
   changeInY = pointB.y - pointA.y
