@@ -1,8 +1,10 @@
+from unittest import result
 import yfinance as yf
 #from pandas_datareader import data as pdr
 import datetime as dt
 import talib as ta 
 import numpy as np 
+import pandas as pd
 import math
 import matplotlib.pyplot as plt
 
@@ -42,13 +44,50 @@ def stochastic(data, k_window, d_window, window):
   D = K.rolling(window=d_window, center=False).mean() 
   return K, D
 
+def to_hourly_data(df, hours):
+
+  column_names = ["Date", "Open", "High", "Low", "Close", "Volume"]
+  result_df = pd.DataFrame(columns = column_names)
+
+  current_index = 0
+  current_low = 1000000000
+  current_high = 0
+  total_vol = 0
+  open = 0
+  date = 0
+
+  for row in df.iterrows():
+    date = row[0]
+    row = row[1]
+    if current_index < hours:
+      if current_index == 0:
+        open = row['Open']
+      if row['Low'] < current_low:
+        current_low = row['Low']
+      if row['High'] > current_high:
+        current_high = row['High']
+      total_vol = total_vol + row['Volume']
+      current_index = current_index + 1
+    else:
+      close = row['Close']
+      new_row = [date, open, current_high, current_low, close, total_vol]
+      result_df = pd.concat([pd.DataFrame([new_row],columns=result_df.columns),result_df],ignore_index=True)
+      open = 0
+      current_index = 0
+      current_low = 1000000000
+      current_high = 0
+      total_vol = 0
+  return result_df
+
 rsi_length = 14
 end_date = dt.datetime.today()
 start_date = end_date - dt.timedelta(days=950)
 stock = 'BTC-USD'
 #df = pdr.get_data_yahoo(stock, start_date, end_date)
 ticker = yf.Ticker(stock)
-df = ticker.history(interval="1D",start="2019-05-05",end="2022-05-05")
+df = ticker.history(interval="1H",start="2021-05-05",end="2022-05-05")
+
+df = to_hourly_data(df, 8)
 
 df['RSI'] = computeRSI(df['Close'], rsi_length)
 df['K'], df['D'] = stochastic(df['RSI'], 3, 3, rsi_length)
