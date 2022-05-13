@@ -85,9 +85,9 @@ start_date = end_date - dt.timedelta(days=950)
 stock = 'BTC-USD'
 #df = pdr.get_data_yahoo(stock, start_date, end_date)
 ticker = yf.Ticker(stock)
-df = ticker.history(interval="1H",start="2021-05-05",end="2022-05-05")
+df = ticker.history(interval="1D",start="2021-05-05",end="2022-05-05")
 
-df = to_hourly_data(df, 8)
+#df = to_hourly_data(df, 8)
 
 df['RSI'] = computeRSI(df['Close'], rsi_length)
 df['K'], df['D'] = stochastic(df['RSI'], 3, 3, rsi_length)
@@ -145,10 +145,11 @@ openPosition = None
 positions = []
 
 #angle in which K crossed D 
-signal_angle = 10
+signal_angle = 7
 #angle in which K crossed D, given an open position. If lower than this then closed. (tendency change)
-signal_angle_retire = 7
-
+signal_angle_retire = 5
+signal_bar_retire = 5
+current_signal_bar = 0
 #plot_srsi(df['K'], df['D'])
 
 for index, row in df.iterrows(): 
@@ -170,14 +171,17 @@ for index, row in df.iterrows():
             openPosition = Position(row['Close'], 'SELL')
     else:
       #evaluate
-      startK = Point(0, last_row['K']) #using 0 to 100 as SRSI is an oscillator (0, 100)
-      endK = Point(100, row['K'])
-      angle = AngleBtw2Points(startK, endK)
-      if abs(angle) > signal_angle_retire:
+      #startK = Point(0, last_row['K']) #using 0 to 100 as SRSI is an oscillator (0, 100)
+      #endK = Point(100, row['K'])
+      #angle = AngleBtw2Points(startK, endK)
+      if current_signal_bar > signal_bar_retire:
+      #if abs(angle) > signal_angle_retire:
+        signal_bar_retire = 0
         openPosition.close(row['Close'])
         positions.append(openPosition)
         print(openPosition.profit)
         openPosition = None 
         signal_row = None 
         openPosition = None 
+      current_signal_bar = current_signal_bar + 1
   last_row = row
