@@ -82,20 +82,33 @@ def to_hourly_data(df, hours):
 rsi_length = 14
 end_date = dt.datetime.today()
 start_date = end_date - dt.timedelta(days=950)
-stock = 'BTC-USD'
+stock = 'GOOG'
 #df = pdr.get_data_yahoo(stock, start_date, end_date)
 ticker = yf.Ticker(stock)
-df = ticker.history(interval="1D",start="2020-05-05",end="2022-05-18")
+df = ticker.history(interval="1D",start="2010-05-05",end="2022-05-18")
 
 #df = to_hourly_data(df, 4)
 
 df['RSI'] = computeRSI(df['Close'], rsi_length)
 df['K'], df['D'] = stochastic(df['RSI'], 3, 3, rsi_length)
-df['target'] = df['Close'] - df['Open']
-#shift up target for next day
-df['target'] = df['target'].shift(-1)
 
-#compute last N angles
+def plot_srsi(k, d):
+  x_axis = range(0, len(k))
+
+  plt.plot(x_axis, k, 'k', label='Line y')
+  plt.plot(x_axis, d, 'd', label='Line z')
+
+  plt.legend()
+  plt.show()
+
+def plot_profit(p):
+  x_axis = range(0, len(p))
+
+  label = 'Profit - Max: {}'.format(str(p[len(p)-1]))
+  plt.plot(x_axis, p, 'k', label=label )
+  plt.legend()
+  plt.show()
+
 class Point:
   x = 0
   y = 0
@@ -103,82 +116,92 @@ class Point:
     self.x = x 
     self.y = y
 
+class Position:
+  open = 0
+  close = 0
+  profit = 0
+  type = 0
+  date = None
+  closeDate = None
+  def __init__(self, open, type, date):
+    self.open = open 
+    self.type = type
+    self.date = date
+  def close(self, close, date):
+    self.close = close
+    self.date = date
+    self.calculate_profit(close)
+  def calculate_profit(self, close):
+    if self.type == 'BUY':
+      self.profit = round(close - self.open)
+    else:
+      self.profit = round(self.open - close)
+
 def AngleBtw2Points(pointA, pointB):
   changeInX = pointB.x - pointA.x
   changeInY = pointB.y - pointA.y
   return math.degrees(math.atan2(changeInY,changeInX)) 
 
-angle_window = 5
+def CrossOver(pointA1, pointA2, pointB1):
+  if pointA1.y > pointB1.y and pointA2.y < pointB1.y:
+    return -1
+  elif pointA1.y < pointB1.y and pointA2.y > pointB1.y:
+    return 1
+  else:
+    return 0
 
-for i in range(1, angle_window):
-  df['rsi_window_'+str(i)]  = 0
+df = df.reset_index()  # make sure indexes pair with number of rows
+last_row = None
+signal_row = None 
+openPosition = None 
+positions = []
+profit_vector = []
+total_profit = 0
+signal_angle_enty = 0
 
-for n, (index, row) in enumerate(df.iterrows()):
-  if n > rsi_length + 20:
-    for i in range(1,5):
-      prev_row = df.iloc[n-i]
-      startK = Point(0, prev_row['K']) #using 0 to 100 as SRSI is an oscillator (0, 100)
-      startD = Point(0, prev_row['D'])
-      endK = Point(100, row['K'])
-      endD = Point(100, row['D']) 
-      angle = AngleBtw2Points(startK, endK)
-      df.iloc[n, df.columns.get_loc('rsi_window_'+str(i))]  = angle
+#angle in which K crossed D 
+signal_angle = 12
+#angle in which K crossed D, given an open position. If lower than this then closed. (tendency change)
+signal_angle_retire = 2
+signal_bar_retire = 2
+current_signal_bar = 0
 
-print(df)
-
-from sklearn.compose import make_column_transformer
-from sklearn.preprocessing import MinMaxScaler,OneHotEncoder
-from sklearn.model_selection import train_test_split
-
-df.reset_index(drop=True, inplace=True)
-
-from sklearn.preprocessing import MinMaxScaler
-scaler = MinMaxScaler()
-
-df=df.dropna()
-
-#remove first
-df = df.iloc[25: , :]
-
-#remove last row
-df = df[:-1]
-
-df = df[ abs(df['target']) > 2500 ]
-target = df['target']
-del df['target']
-del df['Dividends']
-del df['Stock Splits']
-
-df[df.columns] = scaler.fit_transform(df[df.columns])
-
-target[target>0] = 1
-target[target<0] = 0
-
-#binary class
-#target = target > 0 
-
-from sklearn.preprocessing import LabelEncoder
-from sklearn.tree import DecisionTreeClassifier 
-from sklearn import metrics
-
-# encoder = LabelEncoder()
-# encoder.fit(target)
-# target = encoder.transform(target)
-
-
-from sklearn.model_selection import train_test_split
-X_train,X_test,y_train,y_test=train_test_split(df,target,test_size=0.2,
-                                               random_state=42)
-                                         
-# Create Decision Tree classifer object
-clf = DecisionTreeClassifier(max_depth=20)
-
-# Train Decision Tree Classifer
-clf = clf.fit(X_train,y_train)
-
-#Predict the response for test dataset
-y_pred = clf.predict(X_test)
-
-# Model Accuracy, how often is the classifier correct?
-df
-print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
+#plot_srsi(df['K'], df['D'])
+profit = 0
+for index, row in df.iterrows(): 
+  if index > rsi_length + 20 and last_row is not None:
+    startK = Point(0, last_row['K']) #using 0 to 100 as SRSI is an oscillator (0, 100)
+    startD = Point(0, last_row['D'])
+    endK = Point(100, row['K'])
+    endD = Point(100, row['D']) 
+    angle = AngleBtw2Points(startK, endK)
+    if not openPosition:
+      crossOver = CrossOver(startK, endK, startD) #K crosses D
+      if crossOver != 0:
+        if abs(angle) > signal_angle and (crossOver * angle > 0): #checking if crossOver and angle have the same sign
+          signal_angle_entry = angle
+          if angle > 0:
+            signal_row = row
+            openPosition = Position(row['Close'], 'BUY', row['Date'])
+          else:
+            signal_row = row
+            openPosition = Position(row['Close'], 'SELL', row['Date'])
+    else:
+      #evaluate
+      #startK = Point(0, last_row['K']) #using 0 to 100 as SRSI is an oscillator (0, 100)
+      #endK = Point(100, row['K'])
+      #angle = AngleBtw2Points(startK, endK)
+      #if current_signal_bar > signal_bar_retire:
+      if abs(angle) > signal_angle_entry - signal_angle_retire:
+        signal_bar_retire = 0
+        openPosition.close(row['Close'], row['Date'])
+        positions.append(openPosition)
+        profit_vector.append(total_profit)
+        total_profit = total_profit + openPosition.profit
+        openPosition = None 
+        signal_row = None 
+        openPosition = None 
+        signal_angle_entry = 0
+      current_signal_bar = current_signal_bar + 1
+  last_row = row
+plot_profit(profit_vector)
