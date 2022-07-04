@@ -151,14 +151,14 @@ class Position:
   def evaluate(self, price, date):
     if self.type == 'BUY':
       if price < self.stop_loss:
-        self.close(price, date)
+        self.close(self.stop_loss, date)
       if price > self.take_profit:
-        self.close(price, date)
+        self.close(self.take_profit, date)
     elif self.type == 'SELL':
       if price > self.stop_loss:
-        self.close(price, date)
+        self.close(self.stop_loss, date)
       if price < self.take_profit:
-        self.close(price, date)
+        self.close(self.take_profit, date)
   def is_closed(self):
     return self.close_price != 0 
 
@@ -185,7 +185,7 @@ total_profit = 0
 signal_angle_enty = 0
 
 #angle in which K crossed D 
-signal_angle = 15
+signal_angle = 5
 #angle in which K crossed D, given an open position. If lower than this then closed. (tendency change)
 signal_angle_retire = 15
 signal_bar_retire = 2
@@ -210,22 +210,23 @@ for index, row in df.iterrows():
           if angle > 0:
             signal_row = row
             openPosition = Position(close, 'BUY', date)
-            #openPosition.set_stop_loss(close * 0.5)
-            openPosition.set_take_profit(close * 1.05)
+            #openPosition.set_stop_loss(close * 0.95)
+            #openPosition.set_take_profit(close * 1.01)
           else:
             signal_row = row
             openPosition = Position(close, 'SELL', date)
-            #openPosition.set_stop_loss(close * 1.5)
-            openPosition.set_take_profit(close * 0.95)
+            #openPosition.set_stop_loss(close * 1.05)
+            #openPosition.set_take_profit(close * 0.9)
     else:
-      openPosition.evaluate(close, date)
-      if openPosition.is_closed():
-        positions.append(openPosition)
-        total_profit = total_profit + openPosition.profit
-        profit_vector.append(total_profit)
-        openPosition = None 
-        signal_row = None 
-        openPosition = None 
+      #openPosition.evaluate(close, date)
+      #if openPosition.is_closed():
+      openPosition.close(close, date)
+      positions.append(openPosition)
+      total_profit = total_profit + openPosition.profit
+      profit_vector.append(total_profit)
+      openPosition = None 
+      signal_row = None 
+      openPosition = None 
 
   last_row = row
 plot_profit(profit_vector)

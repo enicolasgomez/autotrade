@@ -10,12 +10,16 @@ plt.rc('font', size=14)
 
 name = 'ETH-USD'
 ticker = yfinance.Ticker(name)
-df = ticker.history(interval="1d",start="2022-04-01",end="2022-05-05")
+df = ticker.history(interval="1d",start="2022-05-01",end="2022-07-01")
 
 df['Date'] = pd.to_datetime(df.index)
 df['Date'] = df['Date'].apply(mpl_dates.date2num)
 
 df = df.loc[:,['Date', 'Open', 'High', 'Low', 'Close']]
+
+#df.to_pickle("a_file.pkl")
+
+#df = pd.read_pickle("a_file.pkl")
 
 def isSupport(df,i):
   support = df['Low'][i] < df['Low'][i-1]  and df['Low'][i] < df['Low'][i+1] \
@@ -48,11 +52,10 @@ def plot_all():
 
   fig.tight_layout()
 
-  for level in levels:
-    plt.hlines(level[1],xmin=df['Date'][level[0]],\
-               xmax=max(df['Date']),colors='blue')
+  # for level in levels:
+  #   plt.hlines(level[1],xmin=df['Date'][level[0]],\
+  #              xmax=max(df['Date']),colors='blue')
 
-plot_all()
 
 s =  np.mean(df['High'] - df['Low'])
 
@@ -75,5 +78,5 @@ for i in range(2,df.shape[0]-2):
 
 levels
 
-plot_all()
+#plot_all()
 print("Test")
