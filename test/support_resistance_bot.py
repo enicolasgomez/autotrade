@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 plt.rcParams['figure.figsize'] = [12, 7]
 plt.rc('font', size=14) 
 
-name = 'ETH-USD'
-ticker = yfinance.Ticker(name)
+#name = 'ETH-USD'
+#ticker = yfinance.Ticker(name)
 #df = ticker.history(interval="1d",start="2021-05-01",end="2022-07-01")
 
 #df.to_pickle("df.pkl")
@@ -20,6 +20,22 @@ df['Date'] = pd.to_datetime(df.index)
 df['Date'] = df['Date'].apply(mpl_dates.date2num)
 
 df = df.loc[:,['Date', 'Open', 'High', 'Low', 'Close']]
+
+def plot_all(df, levels):
+  fig, ax = plt.subplots()
+
+  candlestick_ohlc(ax,df.values,width=0.6, \
+                   colorup='green', colordown='red', alpha=0.8)
+
+  date_format = mpl_dates.DateFormatter('%d %b %Y')
+  ax.xaxis.set_major_formatter(date_format)
+  fig.autofmt_xdate()
+
+  fig.tight_layout()
+
+  for level in levels:
+    plt.hlines(level[1],xmin=df['Date'][level[0]],\
+               xmax=max(df['Date']),colors='blue')
 
 
 def plot_profit(p):
@@ -125,11 +141,13 @@ positions = []
 openPosition = None
 total_profit = 0
 profit_vector = []
+prev_close = 0
 
 for i in range(1, len(df)-30):
   #get date range
   start = df.index[i]
   end = df.index[i+30]
+
   #slice dataframe
   window = df.loc[start:end]
   levels = get_levels(window)
@@ -141,22 +159,26 @@ for i in range(1, len(df)-30):
     if openPosition.is_closed():
       positions.append(openPosition)
       total_profit = total_profit + openPosition.profit
+      print(openPosition.profit)
       profit_vector.append(total_profit)
-      openPosition = None
-
+        
   else:
     #get last close
     if levels:
       resistance = levels[len(levels)-1][1]
       support = levels[len(levels)-2][1]
 
-      if last_close > support:
+      mid = abs(support + resistance) / 2
+
+      if last_close > support and prev_close < support:
         openPosition = Position(last_close, 'SELL', last_date)
-        openPosition.set_stop_loss(last_close * 0.105)
-        openPosition.set_take_profit(last_close * 0.9)
-      elif last_close < resistance:
+      elif last_close < resistance and prev_close > resistance:
         openPosition = Position(last_close, 'BUY', last_date)
-        openPosition.set_stop_loss(last_close * 0.95)
-        openPosition.set_take_profit(last_close * 1.05)
+
+      if openPosition:
+        openPosition.set_take_profit(mid)
+        plot_all(window, levels)
+
+    prev_close = last_close
 
 plot_profit(profit_vector)

@@ -52,9 +52,9 @@ def plot_all():
 
   fig.tight_layout()
 
-  # for level in levels:
-  #   plt.hlines(level[1],xmin=df['Date'][level[0]],\
-  #              xmax=max(df['Date']),colors='blue')
+  for level in levels:
+    plt.hlines(level[1],xmin=df['Date'][level[0]],\
+               xmax=max(df['Date']),colors='blue')
 
 
 s =  np.mean(df['High'] - df['Low'])
