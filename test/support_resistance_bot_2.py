@@ -8,18 +8,27 @@ import matplotlib.pyplot as plt
 plt.rcParams['figure.figsize'] = [12, 7]
 plt.rc('font', size=14) 
 
-name = 'AAPL'
-ticker = yfinance.Ticker(name)
-df = ticker.history(interval="1h",start="2021-05-01",end="2022-07-01")
+# name = 'ETH-USD'
+# ticker = yfinance.Ticker(name)
+# df = ticker.history(interval="1h",start="2021-05-01",end="2022-07-01")
 
-#df.to_pickle("df.pkl")
+# df.to_pickle("df.pkl")
 
-#df = pd.read_pickle("df.pkl")
+#end_date = dt.datetime.today()
+#start_date = end_date - dt.timedelta(days=950)
 
-df['Date'] = pd.to_datetime(df.index)
-df['Date'] = df['Date'].apply(mpl_dates.date2num)
+stock = 'BTC-USD'
+from Historic_Crypto import HistoricalData
 
-df = df.loc[:,['Date', 'Open', 'High', 'Low', 'Close']]
+df = HistoricalData(stock,3600,'2019-01-01-00-00').retrieve_data()
+df.to_pickle("df-btcusd.pkl")
+
+#df = pd.read_pickle("df-ethusd.pkl")
+
+df['time'] = pd.to_datetime(df.index)
+df['time'] = df['time'].apply(mpl_dates.date2num)
+
+df = df.loc[:,['time', 'open', 'high', 'low', 'close']]
 
 def plot_all(df, levels):
   fig, ax = plt.subplots()
@@ -27,15 +36,15 @@ def plot_all(df, levels):
   candlestick_ohlc(ax,df.values,width=0.6, \
                    colorup='green', colordown='red', alpha=0.8)
 
-  date_format = mpl_dates.DateFormatter('%d %b %Y')
+  date_format = mpl_dates.timeFormatter('%d %b %Y')
   ax.xaxis.set_major_formatter(date_format)
   fig.autofmt_xdate()
 
   fig.tight_layout()
 
   for level in levels:
-    plt.hlines(level[1],xmin=df['Date'][level[0]],\
-               xmax=max(df['Date']),colors='blue')
+    plt.hlines(level[1],xmin=df['time'][level[0]],\
+               xmax=max(df['time']),colors='blue')
 
 
 def plot_profit(p):
@@ -59,7 +68,7 @@ class Position:
   profit = 0
   type = 0
   date = None
-  closeDate = None
+  closetime = None
   stop_loss = 0
   take_profit = 0
   def __init__(self, open, type, date):
@@ -98,14 +107,14 @@ class Position:
 #df = pd.read_pickle("a_file.pkl")
 
 def isSupport(df,i):
-  support = df['Low'][i] < df['Low'][i-1]  and df['Low'][i] < df['Low'][i+1] \
-  and df['Low'][i+1] < df['Low'][i+2] and df['Low'][i-1] < df['Low'][i-2]
+  support = df['low'][i] < df['low'][i-1]  and df['low'][i] < df['low'][i+1] \
+  and df['low'][i+1] < df['low'][i+2] and df['low'][i-1] < df['low'][i-2]
 
   return support
 
 def isResistance(df,i):
-  resistance = df['High'][i] > df['High'][i-1]  and df['High'][i] > df['High'][i+1] \
-  and df['High'][i+1] > df['High'][i+2] and df['High'][i-1] > df['High'][i-2] 
+  resistance = df['high'][i] > df['high'][i-1]  and df['high'][i] > df['high'][i+1] \
+  and df['high'][i+1] > df['high'][i+2] and df['high'][i-1] > df['high'][i-2] 
 
   return resistance
 
@@ -113,11 +122,11 @@ def get_levels(df):
   levels = []
   for i in range(2,df.shape[0]-2):
     if isSupport(df,i):
-      levels.append((i,df['Low'][i]))
+      levels.append((i,df['low'][i]))
     elif isResistance(df,i):
-      levels.append((i,df['High'][i]))
+      levels.append((i,df['high'][i]))
 
-  s =  np.mean(df['High'] - df['Low'])
+  s =  np.mean(df['high'] - df['low'])
 
   def isFarFromLevel(l):
     return np.sum([abs(l-x) < s  for x in levels]) == 0
@@ -125,13 +134,13 @@ def get_levels(df):
   levels = []
   for i in range(2,df.shape[0]-2):
     if isSupport(df,i):
-      l = df['Low'][i]
+      l = df['low'][i]
 
       if isFarFromLevel(l):
         levels.append((i,l))
 
     elif isResistance(df,i):
-      l = df['High'][i]
+      l = df['high'][i]
 
       if isFarFromLevel(l):
         levels.append((i,l))
@@ -151,27 +160,43 @@ for i in range(1, len(df)-30):
   #slice dataframe
   window = df.loc[start:end]
   levels = get_levels(window)
-  last_close = window['Close'][len(window)-1]
-  last_date =  window['Date'][len(window)-1]
+  last_close = window['close'][len(window)-1]
+  last_date =  window['time'][len(window)-1]
 
-  if openPosition:
-    openPosition.evaluate(last_close, last_date)
-    if openPosition.is_closed():
-      positions.append(openPosition)
-      total_profit = total_profit + openPosition.profit
-      direction = openPosition.type 
-      profitable = openPosition.profit > 0
-      profit_vector.append(total_profit)
-      openPosition = None
-      #if not profitable: 
+  non_profit_level = 0
 
-  else:
-    #get last close
-    if levels:
-      resistance = levels[len(levels)-2][1]
-      support = levels[len(levels)-1][1]
+  if levels:
+    resistance = levels[len(levels)-2][1]
+    support = levels[len(levels)-1][1]
 
-      mid = abs(support + resistance) / 2
+    mid = abs(support + resistance) / 2
+
+    if openPosition:
+      openPosition.evaluate(last_close, last_date)
+      if openPosition.is_closed():
+        positions.append(openPosition)
+        total_profit = total_profit + openPosition.profit
+        profit_vector.append(total_profit)
+        if openPosition.profit < 0:
+          if non_profit_level == 0:
+            non_profit_level = 1
+            #reversal
+            if openPosition.type == 'SELL':
+              openPosition = Position(last_close, 'BUY', last_date)
+              openPosition.set_take_profit(last_close * 1.02)
+              openPosition.set_stop_loss(support)
+            else:
+              openPosition = Position(last_close, 'SELL', last_date)
+              openPosition.set_take_profit(last_close * 0.98)
+              openPosition.set_stop_loss(resistance)
+          else:
+            openPosition = None
+        else:
+          openPosition = None
+          non_profit_level = 0
+          
+    else:
+      #get last close
 
       if last_close < support and prev_close > support:
         openPosition = Position(last_close, 'BUY', last_date)
