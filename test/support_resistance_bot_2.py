@@ -20,10 +20,10 @@ plt.rc('font', size=14)
 stock = 'BTC-USD'
 from Historic_Crypto import HistoricalData
 
-df = HistoricalData(stock,3600,'2019-01-01-00-00').retrieve_data()
-df.to_pickle("df-btcusd.pkl")
+#df = HistoricalData(stock,900,'2016-01-01-00-00', '2019-01-01-00-00').retrieve_data()
+#df.to_pickle("df-btcusd-2016-2019.pkl")
 
-#df = pd.read_pickle("df-ethusd.pkl")
+df = pd.read_pickle("df-btcusd.pkl")
 
 df['time'] = pd.to_datetime(df.index)
 df['time'] = df['time'].apply(mpl_dates.date2num)
@@ -88,17 +88,18 @@ class Position:
     self.stop_loss = price
   def set_take_profit(self, price):
     self.take_profit = price
-  def evaluate(self, price, date):
+  def evaluate(self, high, low, date):
     if self.type == 'BUY':
-      if price < self.stop_loss and self.stop_loss > 0:
+      if low < self.stop_loss and self.stop_loss > 0:
         self.close(self.stop_loss, date)
-      if price > self.take_profit:
+      if high > self.take_profit:
         self.close(self.take_profit, date)
     elif self.type == 'SELL':
-      if price > self.stop_loss and self.stop_loss > 0:
+      if high > self.stop_loss and self.stop_loss > 0:
         self.close(self.stop_loss, date)
-      if price < self.take_profit:
+      if low < self.take_profit:
         self.close(self.take_profit, date)
+
   def is_closed(self):
     return self.close_price != 0 
 
@@ -150,7 +151,7 @@ positions = []
 openPosition = None
 total_profit = 0
 profit_vector = []
-prev_close = 0
+prev_close = -1
 
 for i in range(1, len(df)-30):
   #get date range
@@ -161,6 +162,8 @@ for i in range(1, len(df)-30):
   window = df.loc[start:end]
   levels = get_levels(window)
   last_close = window['close'][len(window)-1]
+  last_high = window['high'][len(window)-1]
+  last_low = window['low'][len(window)-1]
   last_date =  window['time'][len(window)-1]
 
   non_profit_level = 0
@@ -172,7 +175,7 @@ for i in range(1, len(df)-30):
     mid = abs(support + resistance) / 2
 
     if openPosition:
-      openPosition.evaluate(last_close, last_date)
+      openPosition.evaluate(last_high, last_low, last_date)
       if openPosition.is_closed():
         positions.append(openPosition)
         total_profit = total_profit + openPosition.profit
