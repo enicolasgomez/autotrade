@@ -92,12 +92,12 @@ class Position:
     if self.type == 'BUY':
       if low < self.stop_loss and self.stop_loss > 0:
         self.close(self.stop_loss, date)
-      if high > self.take_profit:
+      elif high > self.take_profit:
         self.close(self.take_profit, date)
     elif self.type == 'SELL':
       if high > self.stop_loss and self.stop_loss > 0:
         self.close(self.stop_loss, date)
-      if low < self.take_profit:
+      elif low < self.take_profit:
         self.close(self.take_profit, date)
 
   def is_closed(self):
