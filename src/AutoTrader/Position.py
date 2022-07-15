@@ -2,7 +2,7 @@ from PositionType import PositionType
 
 class Position:
     
-  def __init__(self, open_date: float, position_type: PositionType, open_price: float, take_profit: float, stop_loss: float):
+  def __init__(self, open_date: float, position_type: PositionType, open_price: float, take_profit: float, stop_loss: float, was_reversal: bool):
     
     if not (open_price > 0):
         raise Exception("Can't open a position with a price not a positive integer")
@@ -16,6 +16,7 @@ class Position:
     self.close_price = None
     self.profit = None
     self.profitAsPerc = None
+    self.was_reversal = was_reversal
 
   def close(self, price, date):
     

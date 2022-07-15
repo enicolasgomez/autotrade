@@ -69,5 +69,13 @@ for i in range(0, l):
 
   bot.process_new_candle(df['time'].iloc[i], df['open'].iloc[i], df['close'].iloc[i], df['high'].iloc[i], df['low'].iloc[i])
 
-profit_vector = list(accumulate([1 + p.profitAsPerc for p in bot.closed_positions], operator.mul))
-plot_profit(profit_vector)
+closed_positions_only_reversal    = filter(lambda x: x.was_reversal     , bot.closed_positions) 
+closed_positions_without_reversal = filter(lambda x: not x.was_reversal , bot.closed_positions) 
+
+profit_vector_full              = list(accumulate([1 + p.profitAsPerc for p in bot.closed_positions               ], operator.mul))
+profit_vector_only_reversal     = list(accumulate([1 + p.profitAsPerc for p in closed_positions_only_reversal     ], operator.mul))
+profit_vector_without_reversal  = list(accumulate([1 + p.profitAsPerc for p in closed_positions_without_reversal  ], operator.mul))
+
+plot_profit(profit_vector_full)
+plot_profit(profit_vector_only_reversal)
+plot_profit(profit_vector_without_reversal)

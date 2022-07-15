@@ -7,6 +7,8 @@ from PositionType import PositionType
 class TradeBot:
     
     _moving_window_size = 30
+
+    _use_reversal = False
     
     def __init__(self):
         self.open_position = None   
@@ -45,6 +47,8 @@ class TradeBot:
     
         df = pd.DataFrame(d, index = [timestamp])
         self.data_window = pd.concat([self.data_window, df]).tail(TradeBot._moving_window_size)        
+        
+        self.last_closed_position = None
     
         if self.pending_position and self.open_position:
             raise Exception("Whaaat? There is a position and we are trying to open a new one!")
@@ -53,16 +57,17 @@ class TradeBot:
         # If it was closed, we add it to the list of closed_positions and make open_position
         # null.
         if self.open_position and self.open_position.evaluate(high_price, low_price, timestamp):
+            self.last_closed_position = self.open_position
             self.closed_positions.append(self.open_position)
             self.open_position = None
         
         # If there is a pending order schedule, we execute it.
         if self.pending_position:
             # Unpack type, take profit and stop loss values.
-            (position_type, take_profit, stop_loss) = self.pending_position
-            self.open_position = Position(timestamp, position_type, open_price, take_profit, stop_loss)
+            (position_type, take_profit, stop_loss, was_reversal) = self.pending_position
+            self.open_position = Position(timestamp, position_type, open_price, take_profit, stop_loss, was_reversal)
             self.pending_position = None
-        
+
         # Finally, we evaluate the strategy, to find if we should open a position or not. We do this only
         # if there is not open positions, to avoid doing calculations that we are not going to use.
         if not self.open_position:
@@ -89,11 +94,14 @@ class TradeBot:
         
         # Instead of opening the position right away, we assume that after the signal, we put a
         # order that will be completed in the opening of the next candle.
-        if last_close < support and prev_close > support:
-          self.pending_position = (PositionType.BUY,  last_close * 1.02, last_close * 0.99)
-        elif last_close > resistance and prev_close < resistance:
-          self.pending_position = (PositionType.SELL, last_close * 0.98, last_close * 1.01)
+        if TradeBot._use_reversal and self.last_closed_position and self.last_closed_position.profit < 0:
+          if self.last_closed_position.type == PositionType.SELL:
+            self.pending_position = (PositionType.BUY,  last_close * 1.02, support, True)
+          else:
+            self.pending_position = (PositionType.SELL,  last_close * 0.98, resistance, True)
+        else:
+          if last_close < support and prev_close > support:
+            self.pending_position = (PositionType.BUY,  last_close * 1.02, last_close * 0.99, False)
+          elif last_close > resistance and prev_close < resistance:
+            self.pending_position = (PositionType.SELL, last_close * 0.98, last_close * 1.01, False)
 
-               
-    
-     
