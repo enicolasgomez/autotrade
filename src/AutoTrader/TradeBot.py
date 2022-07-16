@@ -1,4 +1,5 @@
 from datetime import datetime
+from pickle import FALSE
 import pandas as pd
 from LevelCalculator import LevelCalculator
 from Position import Position
@@ -7,15 +8,15 @@ from PositionType import PositionType
 class TradeBot:
     
     _moving_window_size = 30
-
-    _use_reversal = False
+    _use_reversal = False   
     
     def __init__(self):
         self.open_position = None   
         self.closed_positions = []
         self.pending_position = None
         self.data_window = pd.DataFrame()
-    
+        self.trigger_reversal = False 
+
     def process_new_candle(self, timestamp: datetime, \
                                  open_price: float, close_price: float, high_price: float, low_price: float):
         """Processes a new 'candle'. Conceptually this happens at the end of
@@ -85,23 +86,32 @@ class TradeBot:
             
         prev_close = self.data_window['close'].iloc[-2]
         last_close = self.data_window['close'].iloc[-1]
-        last_high = self.data_window['high'].iloc[-1]
-        last_low = self.data_window['low'].iloc[-1]
-        last_date =  self.data_window['time'].iloc[-1]
 
         support = s[-1][1]
         resistance = r[-1][1]
+        mid = (support + resistance) /2 
+        delta = (mid - support) * 0.5
+
+        if TradeBot._use_reversal:
+          last_confirmed_closed_position = None 
+          total_closed_positions = len(self.closed_positions)
+          if total_closed_positions > 0:
+            last_confirmed_closed_position = self.closed_positions[-1]
+            if last_confirmed_closed_position.profit < 0 and not last_confirmed_closed_position.was_reversal:
+              self.trigger_reversal = True 
+            else:
+              self.trigger_reversal = False 
         
         # Instead of opening the position right away, we assume that after the signal, we put a
         # order that will be completed in the opening of the next candle.
-        if TradeBot._use_reversal and self.last_closed_position and self.last_closed_position.profit < 0:
-          if self.last_closed_position.type == PositionType.SELL:
-            self.pending_position = (PositionType.BUY,  last_close * 1.02, support, True)
+        if self.trigger_reversal :
+          if last_confirmed_closed_position.type == PositionType.SELL:
+            self.pending_position = (PositionType.BUY,  last_close * 1.02, last_close * 0.99, True)
           else:
-            self.pending_position = (PositionType.SELL,  last_close * 0.98, resistance, True)
+            self.pending_position = (PositionType.SELL,  last_close * 0.98, last_close * 1.01, True)
         else:
           if last_close < support and prev_close > support:
-            self.pending_position = (PositionType.BUY,  last_close * 1.02, last_close * 0.99, False)
+            self.pending_position = (PositionType.BUY,  mid, last_close - delta, False)
           elif last_close > resistance and prev_close < resistance:
-            self.pending_position = (PositionType.SELL, last_close * 0.98, last_close * 1.01, False)
+            self.pending_position = (PositionType.SELL, mid, last_close + delta, False)
 

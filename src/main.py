@@ -1,47 +1,34 @@
-import operator
-from Historic_Crypto import HistoricalData
 import pandas as pd
 import numpy as np
-import yfinance
-from mplfinance.original_flavor import candlestick_ohlc
+import os.path
+#TODO check for compat
+
+from binance.client import Client
 import matplotlib.dates as mpl_dates
-import matplotlib.pyplot as plt
-from AutoTrader.TradeBot import TradeBot
-from itertools import accumulate
+from Simulator import Simulator
+from binance.websockets import BinanceSocketManager
+from Ticker import Ticker
+from TradeBot import TradeBot
+from Historic_Crypto import HistoricalData
+live = False
 
-plt.rcParams['figure.figsize'] = [12, 7]
-plt.rc('font', size=14) 
+stock = 'BTC-USD'
+size = '15m'
+api_key = ""
+api_secret = ""
 
-def plot_all(df, levels):
-  fig, ax = plt.subplots()
+ticker = Ticker(stock, size)
+trade_bot = TradeBot()
 
-  candlestick_ohlc(ax,df.values,width=0.6, \
-                   colorup='green', colordown='red', alpha=0.8)
+def retrieve_data(symbol, size, start, end):
 
-  date_format = mpl_dates.timeFormatter('%d %b %Y')
-  ax.xaxis.set_major_formatter(date_format)
-  fig.autofmt_xdate()
+    file_hash = ''.join([symbol, str(size), start, end, '.pkl'])
 
-  fig.tight_layout()
-
-  for level in levels:
-    plt.hlines(level[1],xmin=df['time'][level[0]],\
-               xmax=max(df['time']),colors='blue')
-
-
-def plot_profit(p):
-  x_axis = range(0, len(p))
-
-  label = 'Profit - Max: {}'.format(str(p[-1]))
-  plt.plot(x_axis, p, 'k', label=label )
-  plt.legend()
-  plt.show()
-
-def retrieveData(symbol):
-    #df = HistoricalData(symbol, 900,'2016-01-01-00-00', '2019-01-01-00-00').retrieve_data()
-    #df.to_pickle("df-btcusd-2016-2019.pkl")
-
-    df = pd.read_pickle("../df-btcusd.pkl")
+    if os.path.isfile(file_hash):
+      df = pd.read_pickle(file_hash)
+    else:
+      df = HistoricalData(symbol, size, start, end).retrieve_data()
+      df.to_pickle(file_hash)
     
     df['time'] = pd.to_datetime(df.index)
     df['time'] = df['time'].apply(mpl_dates.date2num)
@@ -50,32 +37,31 @@ def retrieveData(symbol):
     
     return df
 
-stock = 'BTC-USD'
+if live :
+  client = Client(api_key, api_secret)
+  bm = BinanceSocketManager(client) 
+  bnb_balance = client.get_asset_balance(asset='BTC')
+  print("Balance: {}".format(bnb_balance))
 
-df = retrieveData(stock)
+  def process_message(msg):
+    print("Bid - Ask BTCUSDT price: {} - {}".format(msg['b'], msg['a']))
+    ticker.add_tick(msg)
 
-bot = TradeBot()
+  bm.start_symbol_ticker_socket(stock, process_message)
+  bm.start()
 
-l = len(df)
-next_report = 0
+else:
+  start = '2022-01-01-00-00'
+  end = '2022-07-01-00-00'
+  #load tick data 
+  df = retrieve_data(stock, 1, start, end)
+  for tick in df.iterrows():
+    ticker.add_tick(tick)
 
-for i in range(0, l):
+
+def _new_candle_candler(candle):
+  print(candle)
+  trade_bot.process_new_candle(candle)
+
+ticker.attach(_new_candle_candler)
   
-  percProgress = i * 1.0 / l
-
-  if percProgress >= next_report:
-    print(f'Progress {round(percProgress * 100, 5)}')
-    next_report = percProgress + 0.05
-
-  bot.process_new_candle(df['time'].iloc[i], df['open'].iloc[i], df['close'].iloc[i], df['high'].iloc[i], df['low'].iloc[i])
-
-closed_positions_only_reversal    = filter(lambda x: x.was_reversal     , bot.closed_positions) 
-closed_positions_without_reversal = filter(lambda x: not x.was_reversal , bot.closed_positions) 
-
-profit_vector_full              = list(accumulate([1 + p.profitAsPerc for p in bot.closed_positions               ], operator.mul))
-profit_vector_only_reversal     = list(accumulate([1 + p.profitAsPerc for p in closed_positions_only_reversal     ], operator.mul))
-profit_vector_without_reversal  = list(accumulate([1 + p.profitAsPerc for p in closed_positions_without_reversal  ], operator.mul))
-
-plot_profit(profit_vector_full)
-plot_profit(profit_vector_only_reversal)
-plot_profit(profit_vector_without_reversal)

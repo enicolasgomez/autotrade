@@ -168,11 +168,17 @@ for i in range(1, len(df)-30):
 
   non_profit_level = 0
 
-  if levels:
+  if levels and len(levels) > 1:
     resistance = levels[len(levels)-2][1]
     support = levels[len(levels)-1][1]
 
-    mid = abs(support + resistance) / 2
+    # support = levels[len(levels)-2][1]
+    # resistance = levels[len(levels)-1][1]
+
+    # if resistance < support:
+    #   aux = support 
+    #   support = resistance 
+    #   resistance = aux
 
     if openPosition:
       openPosition.evaluate(last_high, last_low, last_date)
@@ -200,15 +206,15 @@ for i in range(1, len(df)-30):
           
     else:
       #get last close
-
-      if last_close < support and prev_close > support:
-        openPosition = Position(last_close, 'BUY', last_date)
-        openPosition.set_take_profit(last_close * 1.02)
-        openPosition.set_stop_loss(last_close * 0.99)
-      elif last_close > resistance and prev_close < resistance:
-        openPosition = Position(last_close, 'SELL', last_date)
-        openPosition.set_take_profit(last_close * 0.98)
-        openPosition.set_stop_loss(last_close * 1.01)
+      if last_close > 0:
+        if last_close < support and prev_close > support:
+          openPosition = Position(last_close, 'BUY', last_date)
+          openPosition.set_take_profit(last_close * 1.04)
+          openPosition.set_stop_loss(last_close * 0.99)
+        elif last_close > resistance and prev_close < resistance:
+          openPosition = Position(last_close, 'SELL', last_date)
+          openPosition.set_take_profit(last_close * 0.95)
+          openPosition.set_stop_loss(last_close * 1.01)
 
     prev_close = last_close
 

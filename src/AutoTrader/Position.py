@@ -37,7 +37,9 @@ class Position:
     else:
       self.profit = self.open_price - self.close_price
 
-    self.profitAsPerc = self.profit / self.open_price
+    comission_multiplier = 0.995 if self.profit > 0 else 1.005 #Binance comission 0.5%
+
+    self.profitAsPerc = ( self.profit / self.open_price ) * comission_multiplier 
 
   def evaluate(self, high, low, date) -> bool:
 
@@ -56,3 +58,6 @@ class Position:
 
   def is_closed(self):
     return self.close_price != None 
+
+  def is_profitable(self):
+    return self.is_closed() and self.profit > 0
