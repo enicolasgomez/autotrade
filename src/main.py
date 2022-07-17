@@ -51,8 +51,6 @@ def retrieve_data(symbol, start, end):
     df['time'] = pd.to_datetime(df.index)
     df['time'] = df['time'].apply(mpl_dates.date2num)
 
-    df = df.loc[:,['time', 'open', 'high', 'low', 'close']]
-    
     return df
 
 if live :
@@ -69,7 +67,7 @@ if live :
 
 else:
   start = '1 Jul, 2022 '
-  end   = '2 Jul, 2022'
+  end   = '1 Jan, 2022'
   df    = retrieve_data(symbol, start, end)
 
   for tick in df.iterrows():
