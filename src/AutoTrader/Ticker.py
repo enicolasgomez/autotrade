@@ -2,14 +2,12 @@ import pandas as pd
 
 class Ticker:
 
-  def __init__(self, symbol, time_frame, live):
-    self.symbol = symbol
+  def __init__(self, time_frame):
     self.time_frame = time_frame
     self.ask_candles = pd.DataFrame()
     self.bid_candles = pd.DataFrame()
     self.raw_data = pd.DataFrame()
     self._observers = []
-    self.live = live 
 
   def _notify(self, modifier = None):
     """Alert the observers"""
@@ -45,18 +43,6 @@ class Ticker:
       bid_df.resample(self.time_frame)['Bid'].ohlc()
       self.bid_candles = bid_df
       self._notify()
-
-  def buy(self):
-    print("creating buy order ...")
-    if self.live:
-      buy_order = self.client.create_test_order(symbol=self.symbol, side='BUY', type='MARKET', quantity=100)
-      print(buy_order)
-
-  def sell(self):
-    print("creating sell order ...")
-    if self.live:
-      sell_order = self.client.create_test_order(symbol=self.symbol, side='SELL', type='MARKET', quantity=100)
-      print(sell_order)
 
 
 

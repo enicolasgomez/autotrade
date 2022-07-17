@@ -5,29 +5,34 @@ import os.path
 
 from binance.client import Client
 import matplotlib.dates as mpl_dates
-from Simulator import Simulator
-from binance.websockets import BinanceSocketManager
-from Ticker import Ticker
-from TradeBot import TradeBot
-from Historic_Crypto import HistoricalData
+from binance.streams import BinanceSocketManager
+from AutoTrader.Ticker import Ticker
+from AutoTrader.TradeBot import TradeBot
+
+from os.path import join, dirname
+from dotenv import load_dotenv
+
+dotenv_path = join(dirname(__file__), '.env')
+load_dotenv(dotenv_path)
+
 live = False
-
-stock = 'BTC-USD'
+symbol = 'BTCUSDT'
 size = '15m'
-api_key = ""
-api_secret = ""
+api_key = os.environ.get("BINANCE_API_KEY")
+api_secret = os.environ.get("BINANCE_API_SECRET")
 
-ticker = Ticker(stock, size)
+ticker = Ticker(size)
 trade_bot = TradeBot()
+client = Client(api_key, api_secret)
 
-def retrieve_data(symbol, size, start, end):
+def retrieve_data(symbol, start, end):
 
-    file_hash = ''.join([symbol, str(size), start, end, '.pkl'])
+    file_hash = ''.join([symbol, start, end, '.pkl'])
 
     if os.path.isfile(file_hash):
       df = pd.read_pickle(file_hash)
     else:
-      df = HistoricalData(symbol, size, start, end).retrieve_data()
+      df = client.get_historical_klines(symbol, Client.KLINE_INTERVAL_1MINUTE, start, end)
       df.to_pickle(file_hash)
     
     df['time'] = pd.to_datetime(df.index)
@@ -38,7 +43,6 @@ def retrieve_data(symbol, size, start, end):
     return df
 
 if live :
-  client = Client(api_key, api_secret)
   bm = BinanceSocketManager(client) 
   bnb_balance = client.get_asset_balance(asset='BTC')
   print("Balance: {}".format(bnb_balance))
@@ -47,17 +51,16 @@ if live :
     print("Bid - Ask BTCUSDT price: {} - {}".format(msg['b'], msg['a']))
     ticker.add_tick(msg)
 
-  bm.start_symbol_ticker_socket(stock, process_message)
+  bm.start_symbol_ticker_socket(symbol, process_message)
   bm.start()
 
 else:
-  start = '2022-01-01-00-00'
-  end = '2022-07-01-00-00'
-  #load tick data 
-  df = retrieve_data(stock, 1, start, end)
+  start = '1 Jan, 2022 '
+  end   = '1 Jul, 2022'
+  df    = retrieve_data(symbol, start, end)
+
   for tick in df.iterrows():
     ticker.add_tick(tick)
-
 
 def _new_candle_candler(candle):
   print(candle)
