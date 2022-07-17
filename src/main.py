@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import os.path
+import operator
 #TODO check for compat
 
 from binance.client import Client
@@ -11,19 +13,34 @@ from AutoTrader.TradeBot import TradeBot
 
 from os.path import join, dirname
 from dotenv import load_dotenv
+from itertools import accumulate
 
 dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
 
 live = False
 symbol = 'BTCUSDT'
-size = '15m'
+size = 15
 api_key = os.environ.get("BINANCE_API_KEY")
 api_secret = os.environ.get("BINANCE_API_SECRET")
 
 ticker = Ticker(size)
 trade_bot = TradeBot()
 client = Client(api_key, api_secret)
+
+def plot_profit(p):
+  x_axis = range(0, len(p))
+
+  label = 'Profit - Max: {}'.format(str(p[-1]))
+  plt.plot(x_axis, p, 'k', label=label )
+  plt.legend()
+  plt.show()
+
+def _new_candle_candler(candle):
+  #print(candle.literal())
+  trade_bot.process_new_candle(candle.time, candle.open, candle.close, candle.high, candle.low)
+
+ticker.attach(_new_candle_candler)
 
 def retrieve_data(symbol, start, end):
 
@@ -66,16 +83,15 @@ if live :
   bm.start()
 
 else:
-  start = '1 Jul, 2022 '
-  end   = '1 Jan, 2022'
+  start = '1 Jan, 2022 '
+  end   = '15 Jul, 2022'
   df    = retrieve_data(symbol, start, end)
 
-  for tick in df.iterrows():
+  for index, tick in df.iterrows():
     ticker.add_tick(tick)
 
-def _new_candle_candler(candle):
-  print(candle)
-  trade_bot.process_new_candle(candle)
-
-ticker.attach(_new_candle_candler)
+  #get graphs
+  profit_vector_full              = list(accumulate([1 + p.profitAsPerc for p in trade_bot.closed_positions          ], operator.mul))
+  plot_profit(profit_vector_full)
+  print("completed")
   
