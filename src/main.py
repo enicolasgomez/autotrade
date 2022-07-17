@@ -32,7 +32,20 @@ def retrieve_data(symbol, start, end):
     if os.path.isfile(file_hash):
       df = pd.read_pickle(file_hash)
     else:
-      df = client.get_historical_klines(symbol, Client.KLINE_INTERVAL_1MINUTE, start, end)
+      klines = np.array(client.get_historical_klines(symbol, Client.KLINE_INTERVAL_1MINUTE, start, end))
+      df     = pd.DataFrame(klines.reshape(-1,12),dtype=float, columns = ('Open Time',
+                                                                          'Open',
+                                                                          'High',
+                                                                          'Low',
+                                                                          'Close',
+                                                                          'Volume',
+                                                                          'Close time',
+                                                                          'Quote asset volume',
+                                                                          'Number of trades',
+                                                                          'Taker buy base asset volume',
+                                                                          'Taker buy quote asset volume',
+                                                                          'Ignore'))
+      df['Open Time'] = pd.to_datetime(df['Open Time'], unit='ms')
       df.to_pickle(file_hash)
     
     df['time'] = pd.to_datetime(df.index)
@@ -55,8 +68,8 @@ if live :
   bm.start()
 
 else:
-  start = '1 Jan, 2022 '
-  end   = '1 Jul, 2022'
+  start = '1 Jul, 2022 '
+  end   = '2 Jul, 2022'
   df    = retrieve_data(symbol, start, end)
 
   for tick in df.iterrows():
