@@ -15,7 +15,26 @@ class TradeBot:
         self.closed_positions = []
         self.pending_position = None
         self.data_window = pd.DataFrame()
-        self.trigger_reversal = False 
+        self.trigger_reversal = False
+        self.observers = []
+
+    def _notify(self, params, modifier = None):
+      """Alert the observers"""
+      for observer in self.observers:
+          if modifier != observer:
+              observer(params)
+  
+    def attach(self, observer):
+        """If the observer is not in the list,append it into the list"""
+        if observer not in self.observers:
+            self.observers.append(observer)
+  
+    def detach(self, observer):
+        """Remove the observer from the observer list"""
+        try:
+            self.observers.remove(observer)
+        except ValueError:
+            pass 
 
     def process_new_candle(self, timestamp: datetime, \
                                  open_price: float, close_price: float, high_price: float, low_price: float):
@@ -58,16 +77,19 @@ class TradeBot:
         # If it was closed, we add it to the list of closed_positions and make open_position
         # null.
         if self.open_position and self.open_position.evaluate(high_price, low_price, timestamp):
+            self._notify(["CLOSE", self.open_position])
             self.last_closed_position = self.open_position
             self.closed_positions.append(self.open_position)
             self.open_position = None
-        
+            
         # If there is a pending order schedule, we execute it.
         if self.pending_position:
+            self._notify(["OPEN", self.pending_position])
             # Unpack type, take profit and stop loss values.
             (position_type, take_profit, stop_loss, was_reversal) = self.pending_position
             self.open_position = Position(timestamp, position_type, open_price, take_profit, stop_loss, was_reversal)
             self.pending_position = None
+            
 
         # Finally, we evaluate the strategy, to find if we should open a position or not. We do this only
         # if there is not open positions, to avoid doing calculations that we are not going to use.

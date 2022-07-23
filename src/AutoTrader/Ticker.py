@@ -29,22 +29,26 @@ class Ticker:
           pass
 
   def add_tick(self, tick_data):
-    time  = tick_data['Close time']
+    open_time = tick_data['Open Time']
+    close_time  = tick_data['Close time']
     open  = tick_data['Open']
     close = tick_data['Close']
     high  = tick_data['High']
     low   = tick_data['Low']
-    if self.counter == self.time_frame - 1: #candle closed as the division mod is now lower than before (unix epoch seconds)
-      self.candle.do_close(close)
+
+    if not self.candle :
+      self.candle = Candle(open, open_time)
+
+    if self.counter == self.time_frame - 1 : 
+      self.candle.compare(low, high)
+      self.candle.do_close(close, close_time)
       self.counter = 0
       self._notify(self.candle)
-      self.candle = Candle(time, open)
+      self.candle = None
     else:
-      if not self.candle :
-        self.candle = Candle(time, open)
+      self.counter = self.counter + 1
       self.candle.compare(low, high)
 
-    self.counter = self.counter + 1
 
 
 
